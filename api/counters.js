@@ -7,7 +7,10 @@ const defaultCounters = [
   { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
 ];
 
-export default function handler(req, res) {
+const JSONBIN_BIN_ID = '67b556a1e41b4d34e472afeb';
+const JSONBIN_KEY = '$2a$10$4EUQPyWmBIa.wfKD8QqP2eGLzHYrx4DZXNnhQWMPkBsWtVzxPkT0S';
+
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -17,7 +20,23 @@ export default function handler(req, res) {
   }
   
   if (req.method === 'GET') {
-    return res.status(200).json(defaultCounters);
+    try {
+      const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+        headers: {
+          'X-Master-Key': JSONBIN_KEY
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return res.status(200).json(data.record);
+      } else {
+        return res.status(200).json(defaultCounters);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar dados:', error);
+      return res.status(200).json(defaultCounters);
+    }
   }
   
   return res.status(405).json({ error: 'Method not allowed' });
