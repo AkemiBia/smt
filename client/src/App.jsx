@@ -1,27 +1,43 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
-const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
+const JSONBIN_BIN_ID = '67b556a1e41b4d34e472afeb';
+const JSONBIN_KEY = '$2a$10$4EUQPyWmBIa.wfKD8QqP2eGLzHYrx4DZXNnhQWMPkBsWtVzxPkT0S';
+
+const defaultCounters = [
+  { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
+  { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
+  { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
+  { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
+  { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
+  { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
+];
 
 function App() {
   const [counters, setCounters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Carregar contadores do servidor
+  // Carregar contadores do JSONBin
   const loadCounters = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`${API_URL}/counters`);
-      if (!response.ok) {
-        throw new Error('Erro ao carregar contadores');
+      const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+        headers: {
+          'X-Master-Key': JSONBIN_KEY
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setCounters(data.record);
+      } else {
+        setCounters(defaultCounters);
       }
-      const data = await response.json();
-      setCounters(data);
     } catch (err) {
-      setError(err.message);
       console.error('Erro:', err);
+      setCounters(defaultCounters);
     } finally {
       setLoading(false);
     }
@@ -30,23 +46,25 @@ function App() {
   // Incrementar um contador específico
   const incrementCounter = async (index) => {
     try {
-      const response = await fetch(`${API_URL}/increment`, {
-        method: 'POST',
+      // Incrementar localmente primeiro
+      const newCounters = [...counters];
+      newCounters[index].value += 1;
+      setCounters(newCounters);
+      
+      // Salvar no JSONBin
+      await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'X-Master-Key': JSONBIN_KEY
         },
-        body: JSON.stringify({ index }),
+        body: JSON.stringify(newCounters)
       });
-      
-      if (!response.ok) {
-        throw new Error('Erro ao incrementar contador');
-      }
-      
-      // Recarregar contadores após incrementar
-      await loadCounters();
     } catch (err) {
-      setError(err.message);
+      setError('Erro ao salvar');
       console.error('Erro:', err);
+      // Recarregar em caso de erro
+      await loadCounters();
     }
   };
 
