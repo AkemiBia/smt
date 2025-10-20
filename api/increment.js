@@ -1,5 +1,3 @@
-import { Redis } from '@upstash/redis';
-
 const defaultCounters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
   { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
@@ -8,6 +6,9 @@ const defaultCounters = [
   { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
   { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
 ];
+
+// Cache simples em memória
+let memoryCache = null;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,19 +27,39 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Index inválido' });
       }
       
-      const redis = Redis.fromEnv();
-      let counters = await redis.get('counters');
-      
-      if (!counters) {
-        counters = defaultCounters;
-      }
-      
-      if (index >= 0 && index < counters.length) {
-        counters[index].value += 1;
-        await redis.set('counters', counters);
-        return res.status(200).json(counters[index]);
+      // Verificar se tem variáveis Upstash
+      if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+        const { Redis } = await import('@upstash/redis');
+        const redis = new Redis({
+          url: process.env.UPSTASH_REDIS_REST_URL,
+          token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        });
+        
+        let counters = await redis.get('counters');
+        
+        if (!counters) {
+          counters = defaultCounters;
+        }
+        
+        if (index >= 0 && index < counters.length) {
+          counters[index].value += 1;
+          await redis.set('counters', counters);
+          return res.status(200).json(counters[index]);
+        } else {
+          return res.status(404).json({ error: 'Contador não encontrado' });
+        }
       } else {
-        return res.status(404).json({ error: 'Contador não encontrado' });
+        // Fallback: usar memória (temporário)
+        if (!memoryCache) {
+          memoryCache = [...defaultCounters];
+        }
+        
+        if (index >= 0 && index < memoryCache.length) {
+          memoryCache[index].value += 1;
+          return res.status(200).json(memoryCache[index]);
+        } else {
+          return res.status(404).json({ error: 'Contador não encontrado' });
+        }
       }
     } catch (error) {
       console.error('Erro ao incrementar:', error);

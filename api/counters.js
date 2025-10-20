@@ -1,5 +1,3 @@
-import { Redis } from '@upstash/redis';
-
 const defaultCounters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
   { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
@@ -20,17 +18,28 @@ export default async function handler(req, res) {
   
   if (req.method === 'GET') {
     try {
-      const redis = Redis.fromEnv();
-      let counters = await redis.get('counters');
-      
-      if (!counters) {
-        await redis.set('counters', defaultCounters);
-        counters = defaultCounters;
+      // Verificar se tem variáveis Upstash
+      if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+        const { Redis } = await import('@upstash/redis');
+        const redis = new Redis({
+          url: process.env.UPSTASH_REDIS_REST_URL,
+          token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        });
+        
+        let counters = await redis.get('counters');
+        
+        if (!counters) {
+          await redis.set('counters', defaultCounters);
+          counters = defaultCounters;
+        }
+        
+        return res.status(200).json(counters);
+      } else {
+        console.log('Upstash não configurado, usando valores padrão');
+        return res.status(200).json(defaultCounters);
       }
-      
-      return res.status(200).json(counters);
     } catch (error) {
-      console.error('Erro Redis:', error);
+      console.error('Erro:', error);
       return res.status(200).json(defaultCounters);
     }
   }
