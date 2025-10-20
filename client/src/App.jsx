@@ -8,16 +8,31 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Carregar contadores do servidor
+  // Carregar contadores
   const loadCounters = async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Buscar contadores do servidor
       const response = await fetch(`${API_URL}/counters`);
       if (!response.ok) {
         throw new Error('Erro ao carregar contadores');
       }
       const data = await response.json();
+      
+      // Carregar valores salvos do localStorage
+      const saved = localStorage.getItem('counters');
+      if (saved) {
+        const savedCounters = JSON.parse(saved);
+        // Mesclar com dados do servidor
+        data.forEach((counter, i) => {
+          if (savedCounters[i]) {
+            counter.value = savedCounters[i].value;
+          }
+        });
+      }
+      
       setCounters(data);
     } catch (err) {
       setError(err.message);
@@ -28,26 +43,13 @@ function App() {
   };
 
   // Incrementar um contador específico
-  const incrementCounter = async (index) => {
-    try {
-      const response = await fetch(`${API_URL}/increment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ index }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Erro ao incrementar contador');
-      }
-      
-      // Recarregar contadores após incrementar
-      await loadCounters();
-    } catch (err) {
-      setError(err.message);
-      console.error('Erro:', err);
-    }
+  const incrementCounter = (index) => {
+    const newCounters = [...counters];
+    newCounters[index].value += 1;
+    setCounters(newCounters);
+    
+    // Salvar no localStorage
+    localStorage.setItem('counters', JSON.stringify(newCounters));
   };
 
   // Carregar contadores ao montar o componente
