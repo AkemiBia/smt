@@ -1,8 +1,7 @@
-// Vercel Serverless Function - Versão sem KV (temporária)
-// Para usar com KV, veja instruções no README_VERCEL.md
+// Vercel Serverless Function - Listar contadores
+// Funciona com ou sem Vercel KV
 
-// Dados dos contadores (salvos em memória temporariamente)
-let counters = [
+const defaultCounters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
   { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
   { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
@@ -11,10 +10,19 @@ let counters = [
   { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
 ];
 
+// Tentar importar KV
+let kv = null;
+try {
+  const kvModule = await import('@vercel/kv');
+  kv = kvModule.kv;
+} catch (e) {
+  console.log('KV não disponível, usando modo fallback');
+}
+
 export default async function handler(req, res) {
   // Configurar CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
   if (req.method === 'OPTIONS') {
@@ -23,6 +31,23 @@ export default async function handler(req, res) {
   
   if (req.method === 'GET') {
     try {
+      let counters = defaultCounters;
+      
+      // Se KV estiver disponível e configurado
+      if (kv && process.env.KV_REST_API_URL) {
+        try {
+          const kvCounters = await kv.get('counters');
+          if (kvCounters) {
+            counters = kvCounters;
+          } else {
+            // Inicializar no KV
+            await kv.set('counters', defaultCounters);
+          }
+        } catch (kvError) {
+          console.error('Erro ao usar KV, usando valores padrão:', kvError);
+        }
+      }
+      
       return res.status(200).json(counters);
     } catch (error) {
       console.error('Erro ao obter contadores:', error);
