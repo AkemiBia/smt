@@ -1,4 +1,14 @@
 // Vercel Serverless Function - Listar contadores
+import { createClient } from 'redis';
+
+const defaultCounters = [
+  { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
+  { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
+  { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
+  { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
+  { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
+  { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
+];
 
 export default async function handler(req, res) {
   // Configurar CORS
@@ -11,65 +21,46 @@ export default async function handler(req, res) {
   }
   
   if (req.method === 'GET') {
+    let redis = null;
+    
     try {
-      const defaultCounters = [
-        { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
-        { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
-        { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
-        { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
-        { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
-        { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
-      ];
-      
-      // Tentar importar e usar KV
-      let kv = null;
-      let useKV = false;
-      
-      try {
-        // Import dinâmico do KV
-        const { kv: kvClient } = await import('@vercel/kv');
-        kv = kvClient;
+      // Verificar se tem REDIS_URL
+      if (process.env.REDIS_URL) {
+        console.log('Conectando ao Redis...');
+        redis = createClient({ url: process.env.REDIS_URL });
+        await redis.connect();
         
-        // Verificar se as variáveis de ambiente existem
-        if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-          useKV = true;
-          console.log('KV disponível e configurado');
-        } else {
-          console.log('KV não configurado (env vars ausentes)');
-        }
-      } catch (importError) {
-        console.log('Erro ao importar KV:', importError.message);
-      }
-      
-      if (useKV && kv) {
-        try {
-          // Tentar obter do KV
-          let counters = await kv.get('counters');
-          
-          if (!counters || !Array.isArray(counters)) {
-            console.log('Inicializando contadores no KV');
-            counters = defaultCounters;
-            await kv.set('counters', counters);
-          }
-          
-          console.log('Contadores obtidos do KV:', counters);
+        // Tentar obter do Redis
+        const data = await redis.get('counters');
+        
+        if (data) {
+          const counters = JSON.parse(data);
+          console.log('Contadores obtidos do Redis');
+          await redis.disconnect();
           return res.status(200).json(counters);
-        } catch (kvError) {
-          console.error('Erro ao usar KV, usando valores padrão:', kvError);
+        } else {
+          // Inicializar no Redis
+          console.log('Inicializando contadores no Redis');
+          await redis.set('counters', JSON.stringify(defaultCounters));
+          await redis.disconnect();
           return res.status(200).json(defaultCounters);
         }
+      } else {
+        // Sem Redis, usar valores padrão
+        console.log('Redis não configurado, usando valores padrão');
+        return res.status(200).json(defaultCounters);
       }
-      
-      // Se KV não estiver disponível, retornar valores padrão
-      console.log('Retornando valores padrão (KV não disponível)');
-      return res.status(200).json(defaultCounters);
-      
     } catch (error) {
-      console.error('Erro ao obter contadores:', error);
-      return res.status(500).json({ 
-        error: 'Erro ao obter contadores',
-        message: error.message 
-      });
+      console.error('Erro ao usar Redis:', error);
+      if (redis) {
+        try {
+          await redis.disconnect();
+        } catch (e) {
+          // Ignorar erro ao desconectar
+        }
+      }
+      // Em caso de erro, retornar valores padrão
+      return res.status(200).json(defaultCounters);
     }
   }
   

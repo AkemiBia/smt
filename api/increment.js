@@ -1,4 +1,14 @@
 // Vercel Serverless Function - Incrementar contador
+import { createClient } from 'redis';
+
+const defaultCounters = [
+  { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
+  { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
+  { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
+  { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
+  { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
+  { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
+];
 
 export default async function handler(req, res) {
   // Configurar CORS
@@ -11,6 +21,8 @@ export default async function handler(req, res) {
   }
   
   if (req.method === 'POST') {
+    let redis = null;
+    
     try {
       const { index } = req.body;
       
@@ -18,77 +30,49 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Index inválido' });
       }
       
-      // Tentar importar e usar KV
-      let kv = null;
-      let useKV = false;
-      
-      try {
-        // Import dinâmico do KV
-        const { kv: kvClient } = await import('@vercel/kv');
-        kv = kvClient;
-        
-        // Verificar se as variáveis de ambiente existem
-        if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-          useKV = true;
-          console.log('KV disponível e configurado');
-        } else {
-          console.log('KV não configurado (env vars ausentes)');
-        }
-      } catch (importError) {
-        console.log('Erro ao importar KV:', importError.message);
-      }
-      
-      const defaultCounters = [
-        { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
-        { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
-        { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
-        { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
-        { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
-        { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
-      ];
-      
-      if (useKV && kv) {
-        try {
-          // Obter contadores do KV
-          let counters = await kv.get('counters');
-          
-          if (!counters || !Array.isArray(counters)) {
-            console.log('Inicializando contadores no KV');
-            counters = defaultCounters;
-            await kv.set('counters', counters);
-          }
-          
-          if (index >= 0 && index < counters.length) {
-            counters[index].value += 1;
-            await kv.set('counters', counters);
-            console.log('Contador incrementado com sucesso:', counters[index]);
-            return res.status(200).json(counters[index]);
-          } else {
-            return res.status(404).json({ error: 'Contador não encontrado' });
-          }
-        } catch (kvError) {
-          console.error('Erro ao usar KV:', kvError);
-          return res.status(500).json({ 
-            error: 'Erro ao usar KV',
-            message: kvError.message,
-            stack: kvError.stack
-          });
-        }
-      } else {
-        // KV não disponível
+      // Verificar se tem REDIS_URL
+      if (!process.env.REDIS_URL) {
         return res.status(503).json({ 
-          error: 'KV não configurado',
-          message: 'Configure o Vercel KV Database para que os contadores funcionem',
-          hasUrl: !!process.env.KV_REST_API_URL,
-          hasToken: !!process.env.KV_REST_API_TOKEN
+          error: 'Redis não configurado',
+          message: 'Configure a variável REDIS_URL'
         });
       }
+      
+      console.log('Conectando ao Redis...');
+      redis = createClient({ url: process.env.REDIS_URL });
+      await redis.connect();
+      
+      // Obter contadores atuais
+      let data = await redis.get('counters');
+      let counters = data ? JSON.parse(data) : defaultCounters;
+      
+      // Incrementar
+      if (index >= 0 && index < counters.length) {
+        counters[index].value += 1;
+        await redis.set('counters', JSON.stringify(counters));
+        console.log('Contador incrementado:', counters[index]);
+        
+        await redis.disconnect();
+        return res.status(200).json(counters[index]);
+      } else {
+        await redis.disconnect();
+        return res.status(404).json({ error: 'Contador não encontrado' });
+      }
+      
     } catch (error) {
-      console.error('Erro geral ao incrementar:', error);
+      console.error('Erro ao incrementar:', error);
+      
+      if (redis) {
+        try {
+          await redis.disconnect();
+        } catch (e) {
+          // Ignorar erro ao desconectar
+        }
+      }
+      
       return res.status(500).json({ 
         error: 'Erro ao incrementar contador',
-        message: error.message,
-        stack: error.stack
+        message: error.message
       });
     }
   }
