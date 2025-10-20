@@ -230,11 +230,11 @@ function App() {
         <div className="mb-8 bg-gradient-to-br from-green-100 to-emerald-200 rounded-2xl shadow-2xl p-8 border-2 border-green-300">
           <div className="text-center space-y-4">
             <h2 className="text-3xl font-bold text-green-800">
-              🎉 Estamos há {formatTime(timeSinceIncrement)} sem falar "vou me matar"
+              Estamos há {formatTime(timeSinceIncrement)} sem falar "vou me matar"
             </h2>
             {recordTime > 0 && (
               <p className="text-xl text-green-700 font-semibold">
-                🏆 Nosso recorde é: {formatTime(recordTime)}
+                Nosso recorde é: {formatTime(recordTime)}
               </p>
             )}
           </div>
