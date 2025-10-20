@@ -1,5 +1,4 @@
-// Vercel Serverless Function - Listar contadores
-// Versão simplificada que sempre funciona
+import { kv } from '@vercel/kv';
 
 const defaultCounters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
@@ -11,7 +10,6 @@ const defaultCounters = [
 ];
 
 export default async function handler(req, res) {
-  // Configurar CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -22,15 +20,16 @@ export default async function handler(req, res) {
   
   if (req.method === 'GET') {
     try {
-      console.log('API /counters chamada');
+      let counters = await kv.get('counters');
       
-      // Por enquanto, sempre retornar valores padrão
-      // Isso garante que o site funcione
-      console.log('Retornando contadores padrão');
-      return res.status(200).json(defaultCounters);
+      if (!counters) {
+        await kv.set('counters', defaultCounters);
+        counters = defaultCounters;
+      }
       
+      return res.status(200).json(counters);
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('Erro KV:', error);
       return res.status(200).json(defaultCounters);
     }
   }

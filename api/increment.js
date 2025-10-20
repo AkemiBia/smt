@@ -1,5 +1,4 @@
-// Vercel Serverless Function - Incrementar contador
-// Versão simplificada - valores não persistem mas funciona
+import { kv } from '@vercel/kv';
 
 const defaultCounters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
@@ -10,11 +9,7 @@ const defaultCounters = [
   { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
 ];
 
-// Armazenamento temporário em memória
-let countersInMemory = [...defaultCounters];
-
 export default async function handler(req, res) {
-  // Configurar CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -25,26 +20,30 @@ export default async function handler(req, res) {
   
   if (req.method === 'POST') {
     try {
-      console.log('API /increment chamada');
       const { index } = req.body;
       
       if (typeof index !== 'number') {
         return res.status(400).json({ error: 'Index inválido' });
       }
       
-      if (index >= 0 && index < countersInMemory.length) {
-        countersInMemory[index].value += 1;
-        console.log('Contador incrementado:', countersInMemory[index]);
-        return res.status(200).json(countersInMemory[index]);
+      let counters = await kv.get('counters');
+      
+      if (!counters) {
+        counters = defaultCounters;
+      }
+      
+      if (index >= 0 && index < counters.length) {
+        counters[index].value += 1;
+        await kv.set('counters', counters);
+        return res.status(200).json(counters[index]);
       } else {
         return res.status(404).json({ error: 'Contador não encontrado' });
       }
-      
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('Erro ao incrementar:', error);
       return res.status(500).json({ 
-        error: 'Erro ao incrementar',
-        message: error.message
+        error: 'KV não configurado',
+        message: 'Configure o Vercel KV Database no dashboard'
       });
     }
   }
