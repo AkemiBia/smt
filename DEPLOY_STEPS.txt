@@ -1,0 +1,40 @@
+# 🚀 Passos para Deploy - Conta AkemiBia
+
+## Já feito:
+✅ Git inicializado
+✅ Nome de usuário configurado: AkemiBia
+
+## Próximos passos:
+
+### 1. Configurar email (AGUARDANDO)
+git config user.email "SEU_EMAIL@exemplo.com"
+
+### 2. Adicionar arquivos
+git add .
+
+### 3. Fazer commit
+git commit -m "Initial commit - Sistema de Contadores"
+
+### 4. Conectar ao repositório remoto
+git remote add origin https://github.com/AkemiBia/smt.git
+
+### 5. Verificar branch
+git branch -M main
+
+### 6. Fazer push
+git push -u origin main
+
+### 7. Deploy na Vercel
+- Acesse: https://vercel.com/login
+- Faça login com GitHub (conta AkemiBia)
+- Clique em "Add New..." → "Project"
+- Selecione o repositório "smt"
+- IMPORTANTE: Antes de deployar, vá em "Storage" → "Create Database" → "KV"
+- Nome: contadores-db
+- Clique em "Deploy"
+
+## Notas:
+- URL do repo: https://github.com/AkemiBia/smt
+- Repositório já existe mas está vazio
+- Pronto para receber o push!
+

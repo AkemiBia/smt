@@ -1,0 +1,19 @@
+{
+  "name": "contador-app",
+  "version": "1.0.0",
+  "description": "Sistema de contadores com React e Tailwind",
+  "type": "module",
+  "scripts": {
+    "server": "bun run server.js",
+    "client": "cd client && bun run dev",
+    "dev": "concurrently \"bun run server\" \"bun run client\""
+  },
+  "dependencies": {
+    "@vercel/kv": "^3.0.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
