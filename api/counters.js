@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 
 const defaultCounters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
@@ -20,16 +20,17 @@ export default async function handler(req, res) {
   
   if (req.method === 'GET') {
     try {
-      let counters = await kv.get('counters');
+      const redis = Redis.fromEnv();
+      let counters = await redis.get('counters');
       
       if (!counters) {
-        await kv.set('counters', defaultCounters);
+        await redis.set('counters', defaultCounters);
         counters = defaultCounters;
       }
       
       return res.status(200).json(counters);
     } catch (error) {
-      console.error('Erro KV:', error);
+      console.error('Erro Redis:', error);
       return res.status(200).json(defaultCounters);
     }
   }

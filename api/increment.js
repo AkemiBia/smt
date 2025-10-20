@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 
 const defaultCounters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
@@ -26,7 +26,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Index inválido' });
       }
       
-      let counters = await kv.get('counters');
+      const redis = Redis.fromEnv();
+      let counters = await redis.get('counters');
       
       if (!counters) {
         counters = defaultCounters;
@@ -34,7 +35,7 @@ export default async function handler(req, res) {
       
       if (index >= 0 && index < counters.length) {
         counters[index].value += 1;
-        await kv.set('counters', counters);
+        await redis.set('counters', counters);
         return res.status(200).json(counters[index]);
       } else {
         return res.status(404).json({ error: 'Contador não encontrado' });
@@ -42,8 +43,8 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error('Erro ao incrementar:', error);
       return res.status(500).json({ 
-        error: 'KV não configurado',
-        message: 'Configure o Vercel KV Database no dashboard'
+        error: 'Erro ao incrementar',
+        message: error.message
       });
     }
   }
