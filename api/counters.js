@@ -1,23 +1,4 @@
 // Vercel Serverless Function - Listar contadores
-// Funciona com ou sem Vercel KV
-
-const defaultCounters = [
-  { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
-  { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
-  { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
-  { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
-  { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
-  { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
-];
-
-// Tentar importar KV
-let kv = null;
-try {
-  const kvModule = await import('@vercel/kv');
-  kv = kvModule.kv;
-} catch (e) {
-  console.log('KV não disponível, usando modo fallback');
-}
 
 export default async function handler(req, res) {
   // Configurar CORS
@@ -31,27 +12,64 @@ export default async function handler(req, res) {
   
   if (req.method === 'GET') {
     try {
-      let counters = defaultCounters;
+      const defaultCounters = [
+        { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
+        { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
+        { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
+        { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
+        { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
+        { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
+      ];
       
-      // Se KV estiver disponível e configurado
-      if (kv && process.env.KV_REST_API_URL) {
+      // Tentar importar e usar KV
+      let kv = null;
+      let useKV = false;
+      
+      try {
+        // Import dinâmico do KV
+        const { kv: kvClient } = await import('@vercel/kv');
+        kv = kvClient;
+        
+        // Verificar se as variáveis de ambiente existem
+        if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+          useKV = true;
+          console.log('KV disponível e configurado');
+        } else {
+          console.log('KV não configurado (env vars ausentes)');
+        }
+      } catch (importError) {
+        console.log('Erro ao importar KV:', importError.message);
+      }
+      
+      if (useKV && kv) {
         try {
-          const kvCounters = await kv.get('counters');
-          if (kvCounters) {
-            counters = kvCounters;
-          } else {
-            // Inicializar no KV
-            await kv.set('counters', defaultCounters);
+          // Tentar obter do KV
+          let counters = await kv.get('counters');
+          
+          if (!counters || !Array.isArray(counters)) {
+            console.log('Inicializando contadores no KV');
+            counters = defaultCounters;
+            await kv.set('counters', counters);
           }
+          
+          console.log('Contadores obtidos do KV:', counters);
+          return res.status(200).json(counters);
         } catch (kvError) {
           console.error('Erro ao usar KV, usando valores padrão:', kvError);
+          return res.status(200).json(defaultCounters);
         }
       }
       
-      return res.status(200).json(counters);
+      // Se KV não estiver disponível, retornar valores padrão
+      console.log('Retornando valores padrão (KV não disponível)');
+      return res.status(200).json(defaultCounters);
+      
     } catch (error) {
       console.error('Erro ao obter contadores:', error);
-      return res.status(500).json({ error: 'Erro ao obter contadores', details: error.message });
+      return res.status(500).json({ 
+        error: 'Erro ao obter contadores',
+        message: error.message 
+      });
     }
   }
   
