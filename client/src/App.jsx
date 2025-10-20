@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
-const JSONBIN_BIN_ID = '67b556a1e41b4d34e472afeb';
-const JSONBIN_KEY = '$2a$10$4EUQPyWmBIa.wfKD8QqP2eGLzHYrx4DZXNnhQWMPkBsWtVzxPkT0S';
+const JSONBIN_BIN_ID = '68f67d92d0ea881f40aef53c';
+const JSONBIN_KEY = '$2a$10$ZNnazzBr3ZAHSLNbuEtqVuP10qz3xQYcob5J5SXLviPvtrDZSUW0i';
 
 const defaultCounters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
