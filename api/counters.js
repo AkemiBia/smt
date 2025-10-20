@@ -1,5 +1,4 @@
 // Vercel Serverless Function - Listar contadores
-import { createClient } from 'redis';
 
 const defaultCounters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
@@ -21,14 +20,27 @@ export default async function handler(req, res) {
   }
   
   if (req.method === 'GET') {
-    let redis = null;
-    
     try {
       // Verificar se tem REDIS_URL
-      if (process.env.REDIS_URL) {
+      if (!process.env.REDIS_URL) {
+        console.log('REDIS_URL não encontrada, usando valores padrão');
+        return res.status(200).json(defaultCounters);
+      }
+      
+      // Tentar usar Redis
+      let redis = null;
+      try {
+        const { createClient } = await import('redis');
         console.log('Conectando ao Redis...');
+        
         redis = createClient({ url: process.env.REDIS_URL });
+        
+        redis.on('error', (err) => {
+          console.error('Redis Client Error:', err);
+        });
+        
         await redis.connect();
+        console.log('Conectado ao Redis!');
         
         // Tentar obter do Redis
         const data = await redis.get('counters');
@@ -45,20 +57,24 @@ export default async function handler(req, res) {
           await redis.disconnect();
           return res.status(200).json(defaultCounters);
         }
-      } else {
-        // Sem Redis, usar valores padrão
-        console.log('Redis não configurado, usando valores padrão');
+      } catch (redisError) {
+        console.error('Erro ao usar Redis:', redisError.message);
+        
+        if (redis) {
+          try {
+            await redis.disconnect();
+          } catch (e) {
+            console.error('Erro ao desconectar:', e.message);
+          }
+        }
+        
+        // Fallback para valores padrão
+        console.log('Usando valores padrão como fallback');
         return res.status(200).json(defaultCounters);
       }
+      
     } catch (error) {
-      console.error('Erro ao usar Redis:', error);
-      if (redis) {
-        try {
-          await redis.disconnect();
-        } catch (e) {
-          // Ignorar erro ao desconectar
-        }
-      }
+      console.error('Erro geral:', error.message);
       // Em caso de erro, retornar valores padrão
       return res.status(200).json(defaultCounters);
     }
