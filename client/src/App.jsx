@@ -18,11 +18,13 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Carregar contadores do JSONBin
+  // Carregar contadores
   const loadCounters = async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Tentar carregar do JSONBin
       const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
         headers: {
           'X-Master-Key': JSONBIN_KEY
@@ -32,21 +34,28 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         setCounters(data.record);
+        // Salvar também no localStorage
+        localStorage.setItem('counters', JSON.stringify(data.record));
       } else {
-        // Se não existe, inicializar
-        await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': JSONBIN_KEY
-          },
-          body: JSON.stringify(defaultCounters)
-        });
-        setCounters(defaultCounters);
+        // Tentar carregar do localStorage
+        const saved = localStorage.getItem('counters');
+        if (saved) {
+          setCounters(JSON.parse(saved));
+        } else {
+          // Inicializar
+          setCounters(defaultCounters);
+          localStorage.setItem('counters', JSON.stringify(defaultCounters));
+        }
       }
     } catch (err) {
-      console.error('Erro:', err);
-      setCounters(defaultCounters);
+      console.error('Erro ao carregar:', err);
+      // Fallback para localStorage
+      const saved = localStorage.getItem('counters');
+      if (saved) {
+        setCounters(JSON.parse(saved));
+      } else {
+        setCounters(defaultCounters);
+      }
     } finally {
       setLoading(false);
     }
@@ -61,7 +70,7 @@ function App() {
       setCounters(newCounters);
       
       // Salvar no JSONBin
-      await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+      const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -69,11 +78,20 @@ function App() {
         },
         body: JSON.stringify(newCounters)
       });
+      
+      if (!response.ok) {
+        console.error('Erro ao salvar no JSONBin:', response.status);
+        // Fallback: usar localStorage
+        localStorage.setItem('counters', JSON.stringify(newCounters));
+      } else {
+        console.log('Salvo com sucesso no JSONBin!');
+        // Também salvar no localStorage como backup
+        localStorage.setItem('counters', JSON.stringify(newCounters));
+      }
     } catch (err) {
-      setError('Erro ao salvar');
-      console.error('Erro:', err);
-      // Recarregar em caso de erro
-      await loadCounters();
+      console.error('Erro ao salvar:', err);
+      // Fallback: usar localStorage
+      localStorage.setItem('counters', JSON.stringify(newCounters));
     }
   };
 
