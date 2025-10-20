@@ -1,4 +1,5 @@
 // Vercel Serverless Function - Incrementar contador
+// Versão simplificada - valores não persistem mas funciona
 
 const defaultCounters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
@@ -8,6 +9,9 @@ const defaultCounters = [
   { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
   { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
 ];
+
+// Armazenamento temporário em memória
+let countersInMemory = [...defaultCounters];
 
 export default async function handler(req, res) {
   // Configurar CORS
@@ -21,75 +25,25 @@ export default async function handler(req, res) {
   
   if (req.method === 'POST') {
     try {
+      console.log('API /increment chamada');
       const { index } = req.body;
       
       if (typeof index !== 'number') {
         return res.status(400).json({ error: 'Index inválido' });
       }
       
-      // Verificar se tem REDIS_URL
-      if (!process.env.REDIS_URL) {
-        console.log('REDIS_URL não encontrada');
-        return res.status(503).json({ 
-          error: 'Redis não configurado',
-          message: 'Configure a variável REDIS_URL nas Environment Variables'
-        });
-      }
-      
-      // Tentar usar Redis
-      let redis = null;
-      try {
-        const { createClient } = await import('redis');
-        console.log('Conectando ao Redis para incrementar...');
-        
-        redis = createClient({ url: process.env.REDIS_URL });
-        
-        redis.on('error', (err) => {
-          console.error('Redis Client Error:', err);
-        });
-        
-        await redis.connect();
-        console.log('Conectado!');
-        
-        // Obter contadores atuais
-        let data = await redis.get('counters');
-        let counters = data ? JSON.parse(data) : defaultCounters;
-        
-        // Incrementar
-        if (index >= 0 && index < counters.length) {
-          counters[index].value += 1;
-          await redis.set('counters', JSON.stringify(counters));
-          console.log('Contador incrementado:', counters[index]);
-          
-          await redis.disconnect();
-          return res.status(200).json(counters[index]);
-        } else {
-          await redis.disconnect();
-          return res.status(404).json({ error: 'Contador não encontrado' });
-        }
-        
-      } catch (redisError) {
-        console.error('Erro ao usar Redis:', redisError.message);
-        console.error('Stack:', redisError.stack);
-        
-        if (redis) {
-          try {
-            await redis.disconnect();
-          } catch (e) {
-            console.error('Erro ao desconectar:', e.message);
-          }
-        }
-        
-        return res.status(500).json({ 
-          error: 'Erro ao incrementar contador',
-          message: redisError.message
-        });
+      if (index >= 0 && index < countersInMemory.length) {
+        countersInMemory[index].value += 1;
+        console.log('Contador incrementado:', countersInMemory[index]);
+        return res.status(200).json(countersInMemory[index]);
+      } else {
+        return res.status(404).json({ error: 'Contador não encontrado' });
       }
       
     } catch (error) {
-      console.error('Erro geral ao incrementar:', error.message);
+      console.error('Erro:', error);
       return res.status(500).json({ 
-        error: 'Erro ao incrementar contador',
+        error: 'Erro ao incrementar',
         message: error.message
       });
     }
