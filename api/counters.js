@@ -1,11 +1,11 @@
-// Vercel Serverless Function usando KV Storage
-import { kv } from '@vercel/kv';
+// Vercel Serverless Function - Versão sem KV (temporária)
+// Para usar com KV, veja instruções no README_VERCEL.md
 
-// Dados iniciais (caso não existam no KV)
-const defaultCounters = [
+// Dados dos contadores (salvos em memória temporariamente)
+let counters = [
   { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
   { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
-  { name: 'Bibs', value: 0, image: '/avatars/bibs.svg' },
+  { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
   { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
   { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
   { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
@@ -23,19 +23,10 @@ export default async function handler(req, res) {
   
   if (req.method === 'GET') {
     try {
-      // Tentar obter contadores do KV
-      let counters = await kv.get('counters');
-      
-      // Se não existir, usar valores padrão
-      if (!counters) {
-        counters = defaultCounters;
-        await kv.set('counters', counters);
-      }
-      
       return res.status(200).json(counters);
     } catch (error) {
       console.error('Erro ao obter contadores:', error);
-      return res.status(500).json({ error: 'Erro ao obter contadores' });
+      return res.status(500).json({ error: 'Erro ao obter contadores', details: error.message });
     }
   }
   

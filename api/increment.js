@@ -1,5 +1,17 @@
-// Vercel Serverless Function - Incrementar contador usando KV
-import { kv } from '@vercel/kv';
+// Vercel Serverless Function - Incrementar contador
+// Versão sem KV (dados em memória temporária)
+
+// IMPORTANTE: Em produção, use Vercel KV para persistência
+// Esta versão só mantém os dados enquanto a função estiver "quente"
+
+let counters = [
+  { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
+  { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
+  { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
+  { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
+  { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
+  { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
+];
 
 export default async function handler(req, res) {
   // Configurar CORS
@@ -19,26 +31,15 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Index inválido' });
       }
       
-      // Obter contadores do KV
-      let counters = await kv.get('counters');
-      
-      if (!counters || !Array.isArray(counters)) {
-        return res.status(404).json({ error: 'Contadores não encontrados' });
-      }
-      
       if (index >= 0 && index < counters.length) {
         counters[index].value += 1;
-        
-        // Salvar no KV
-        await kv.set('counters', counters);
-        
         return res.status(200).json(counters[index]);
       } else {
         return res.status(404).json({ error: 'Contador não encontrado' });
       }
     } catch (error) {
       console.error('Erro ao incrementar contador:', error);
-      return res.status(500).json({ error: 'Erro ao incrementar contador' });
+      return res.status(500).json({ error: 'Erro ao incrementar contador', details: error.message });
     }
   }
   
