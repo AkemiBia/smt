@@ -1,34 +1,20 @@
 {
-  "version": 2,
-  "builds": [
+  "buildCommand": "cd client && npm install && npm run build",
+  "outputDirectory": "client/dist",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "rewrites": [
     {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "client/dist"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/counters",
-      "dest": "/api/counters.js"
+      "source": "/api/counters",
+      "destination": "/api/counters.js"
     },
     {
-      "src": "/api/increment",
-      "dest": "/api/increment.js"
+      "source": "/api/increment",
+      "destination": "/api/increment.js"
     },
     {
-      "src": "/avatars/(.*)",
-      "dest": "/client/dist/avatars/$1"
-    },
-    {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|svg|ico|json|webp|gif))",
-      "dest": "/client/dist/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/client/dist/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
