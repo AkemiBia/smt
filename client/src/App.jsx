@@ -4,19 +4,26 @@ import './App.css';
 const JSONBIN_BIN_ID = '68f67d92d0ea881f40aef53c';
 const JSONBIN_KEY = '$2a$10$ZNnazzBr3ZAHSLNbuEtqVuP10qz3xQYcob5J5SXLviPvtrDZSUW0i';
 
-const defaultCounters = [
-  { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
-  { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
-  { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
-  { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
-  { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
-  { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
-];
+const defaultData = {
+  counters: [
+    { name: 'Isabela', value: 0, image: '/avatars/isabela.jpg' },
+    { name: 'Dedeai', value: 0, image: '/avatars/dedeai.png' },
+    { name: 'Bibs', value: 0, image: '/avatars/bibs.jpg' },
+    { name: 'Lali', value: 0, image: '/avatars/lali.jpeg' },
+    { name: 'Samuel', value: 0, image: '/avatars/samuel.svg' },
+    { name: 'Lari', value: 0, image: '/avatars/lari.svg' }
+  ],
+  lastIncrement: Date.now(),
+  recordTime: 0
+};
 
 function App() {
   const [counters, setCounters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [lastIncrement, setLastIncrement] = useState(Date.now());
+  const [recordTime, setRecordTime] = useState(0);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   // Carregar contadores
   const loadCounters = async () => {
@@ -33,28 +40,62 @@ function App() {
       
       if (response.ok) {
         const data = await response.json();
-        setCounters(data.record);
-        // Salvar também no localStorage
-        localStorage.setItem('counters', JSON.stringify(data.record));
+        const record = data.record;
+        
+        // Se for o formato antigo (array), converter para novo formato
+        if (Array.isArray(record)) {
+          const newData = {
+            counters: record,
+            lastIncrement: Date.now(),
+            recordTime: 0
+          };
+          setCounters(newData.counters);
+          setLastIncrement(newData.lastIncrement);
+          setRecordTime(newData.recordTime);
+          // Salvar no novo formato
+          await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Master-Key': JSONBIN_KEY
+            },
+            body: JSON.stringify(newData)
+          });
+        } else {
+          setCounters(record.counters || []);
+          setLastIncrement(record.lastIncrement || Date.now());
+          setRecordTime(record.recordTime || 0);
+        }
+        localStorage.setItem('appData', JSON.stringify(data.record));
       } else {
         // Tentar carregar do localStorage
-        const saved = localStorage.getItem('counters');
+        const saved = localStorage.getItem('appData');
         if (saved) {
-          setCounters(JSON.parse(saved));
+          const data = JSON.parse(saved);
+          setCounters(data.counters || []);
+          setLastIncrement(data.lastIncrement || Date.now());
+          setRecordTime(data.recordTime || 0);
         } else {
           // Inicializar
-          setCounters(defaultCounters);
-          localStorage.setItem('counters', JSON.stringify(defaultCounters));
+          setCounters(defaultData.counters);
+          setLastIncrement(defaultData.lastIncrement);
+          setRecordTime(defaultData.recordTime);
+          localStorage.setItem('appData', JSON.stringify(defaultData));
         }
       }
     } catch (err) {
       console.error('Erro ao carregar:', err);
       // Fallback para localStorage
-      const saved = localStorage.getItem('counters');
+      const saved = localStorage.getItem('appData');
       if (saved) {
-        setCounters(JSON.parse(saved));
+        const data = JSON.parse(saved);
+        setCounters(data.counters || []);
+        setLastIncrement(data.lastIncrement || Date.now());
+        setRecordTime(data.recordTime || 0);
       } else {
-        setCounters(defaultCounters);
+        setCounters(defaultData.counters);
+        setLastIncrement(defaultData.lastIncrement);
+        setRecordTime(defaultData.recordTime);
       }
     } finally {
       setLoading(false);
@@ -64,10 +105,26 @@ function App() {
   // Incrementar um contador específico
   const incrementCounter = async (index) => {
     try {
+      // Calcular tempo atual sem incrementar
+      const currentTimeSinceIncrement = Date.now() - lastIncrement;
+      
+      // Atualizar recorde se necessário
+      const newRecordTime = Math.max(recordTime, currentTimeSinceIncrement);
+      
       // Incrementar localmente primeiro
       const newCounters = [...counters];
       newCounters[index].value += 1;
+      const now = Date.now();
+      
       setCounters(newCounters);
+      setLastIncrement(now);
+      setRecordTime(newRecordTime);
+      
+      const newData = {
+        counters: newCounters,
+        lastIncrement: now,
+        recordTime: newRecordTime
+      };
       
       // Salvar no JSONBin
       const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
@@ -76,22 +133,24 @@ function App() {
           'Content-Type': 'application/json',
           'X-Master-Key': JSONBIN_KEY
         },
-        body: JSON.stringify(newCounters)
+        body: JSON.stringify(newData)
       });
       
       if (!response.ok) {
         console.error('Erro ao salvar no JSONBin:', response.status);
-        // Fallback: usar localStorage
-        localStorage.setItem('counters', JSON.stringify(newCounters));
+        localStorage.setItem('appData', JSON.stringify(newData));
       } else {
         console.log('Salvo com sucesso no JSONBin!');
-        // Também salvar no localStorage como backup
-        localStorage.setItem('counters', JSON.stringify(newCounters));
+        localStorage.setItem('appData', JSON.stringify(newData));
       }
     } catch (err) {
       console.error('Erro ao salvar:', err);
-      // Fallback: usar localStorage
-      localStorage.setItem('counters', JSON.stringify(newCounters));
+      const newData = {
+        counters: counters,
+        lastIncrement: lastIncrement,
+        recordTime: recordTime
+      };
+      localStorage.setItem('appData', JSON.stringify(newData));
     }
   };
 
@@ -99,6 +158,36 @@ function App() {
   useEffect(() => {
     loadCounters();
   }, []);
+
+  // Atualizar tempo a cada segundo
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Formatar tempo em dias, horas, minutos, segundos
+  const formatTime = (milliseconds) => {
+    const seconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    const displayHours = hours % 24;
+    const displayMinutes = minutes % 60;
+    const displaySeconds = seconds % 60;
+
+    const parts = [];
+    if (days > 0) parts.push(`${days} dia${days > 1 ? 's' : ''}`);
+    if (displayHours > 0) parts.push(`${displayHours}h`);
+    if (displayMinutes > 0) parts.push(`${displayMinutes}min`);
+    if (displaySeconds >= 0) parts.push(`${displaySeconds}s`);
+
+    return parts.join(' ');
+  };
+
+  const timeSinceIncrement = currentTime - lastIncrement;
 
   if (loading) {
     return (
@@ -135,6 +224,20 @@ function App() {
           <p className="text-gray-600 text-lg">
             Clique nos botões quando alguem falar vo me mata em call
           </p>
+        </div>
+
+        {/* Contador de tempo sem falar "vou me matar" */}
+        <div className="mb-8 bg-gradient-to-br from-green-100 to-emerald-200 rounded-2xl shadow-2xl p-8 border-2 border-green-300">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl font-bold text-green-800">
+              🎉 Estamos há {formatTime(timeSinceIncrement)} sem falar "vou me matar"
+            </h2>
+            {recordTime > 0 && (
+              <p className="text-xl text-green-700 font-semibold">
+                🏆 Nosso recorde é: {formatTime(recordTime)}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
