@@ -33,6 +33,15 @@ function App() {
         const data = await response.json();
         setCounters(data.record);
       } else {
+        // Se não existe, inicializar
+        await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_KEY
+          },
+          body: JSON.stringify(defaultCounters)
+        });
         setCounters(defaultCounters);
       }
     } catch (err) {
